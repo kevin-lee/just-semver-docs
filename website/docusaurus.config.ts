@@ -17,6 +17,11 @@ const isEmptyObject = (obj: object) => Object.keys(obj).length === 0;
 const isSearchable = !isEmptyObject(algoliaConfig);
 const hasGoogleAnalytics = !isEmptyObject(googleAnalyticsConfig);
 
+import type {LatestVersion} from './src/types/commonTypes';
+
+import LatestVersionImported from './latestVersion.json';
+const latestVersionFound = LatestVersionImported as LatestVersion;
+
 const classicConfig = {
   docs: {
     path: '../generated-docs/docs/',
@@ -24,7 +29,7 @@ const classicConfig = {
     lastVersion: 'current',
     "versions": {
       "current": {
-        "label": "1.1.1"
+        "label": `v${latestVersionFound.version}`,
       },
     }
     // Please change this to your repo.

@@ -58,7 +58,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sbt \
-            ++${{ matrix.scala.version }}! \
+            ++${{ matrix.scala.version }} \
+            docs/gitHubPagesCreateGitHubPagesBranchIfNotExist \
             clean \
             docs/clean \
             docs/mdoc \

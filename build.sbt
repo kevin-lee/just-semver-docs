@@ -1,6 +1,4 @@
-import just.semver.SemVer
-import SemVer.{Major, Minor}
-import kevinlee.sbt.SbtCommon.crossVersionProps
+import extras.scala.io.syntax.color.*
 
 ThisBuild / scalaVersion := props.ProjectScalaVersion
 ThisBuild / organization := "io.kevinlee"
@@ -8,153 +6,79 @@ ThisBuild / crossScalaVersions := props.CrossScalaVersions
 
 ThisBuild / developers := List(
   Developer(
-    "kevin-lee",
+    props.GitHubUsername,
     "Kevin Lee",
     "kevin.code@kevinlee.io",
-    url("https://github.com/kevin-lee")
+    url(s"https://github.com/${props.GitHubUsername}"),
   )
 )
-ThisBuild / homepage := url("https://github.com/kevin-lee/just-semver").some
-ThisBuild / scmInfo :=
-  ScmInfo(
-    url("https://github.com/kevin-lee/just-semver"),
-    "git@github.com:kevin-lee/just-semver.git"
-  ).some
 ThisBuild / licenses := props.licenses
-
-lazy val justSemVer = (project in file("."))
-  .enablePlugins(DevOopsGitHubReleasePlugin)
-  .settings(
-    name := props.RepoName,
-    description := "Semantic Versioning (SemVer) for Scala",
-  )
-  .dependsOn(
-    coreJvm,
-    coreJs,
-    coreNative,
-    decverJvm,
-    decverJs,
-    decverNative,
-  )
-  .aggregate(
-    coreJvm,
-    coreJs,
-    coreNative,
-    decverJvm,
-    decverJs,
-    decverNative,
-  )
-
-import sbtcrossproject.CrossProject
-
-lazy val core = module("core", crossProject(JVMPlatform, JSPlatform, NativePlatform))
-  .settings(
-    libraryDependencies ++= List(libs.tests.scalaCollectionCompat.value),
-//    (Compile / compile) / scalacOptions ++= (if (isGhaPublishing) List.empty[String]
-//                                           else ProjectInfo.commonWarts(scalaVersion.value)),
-//    (Test / compile) / scalacOptions ++= (if (isGhaPublishing) List.empty[String]
-//                                        else ProjectInfo.commonWarts(scalaVersion.value)),
-//      (Compile / console / scalacOptions)
-//        .value
-//        .filterNot(option => option.contains("wartremover") || option.contains("import")),
-//    Test / console / scalacOptions    :=
-//      (Test / console / scalacOptions)
-//        .value
-//        .filterNot(option => option.contains("wartremover") || option.contains("import")),
-// -----------
-
-    /* WartRemover and scalacOptions { */
-//      Compile / compile / wartremoverErrors ++= commonWarts((update / scalaBinaryVersion).value),
-//      Test / compile / wartremoverErrors ++= commonWarts((update / scalaBinaryVersion).value),
-
-    //      wartremoverErrors ++= Warts.all,
-    /////////// wartremoverErrors ++= commonWarts((update / scalaBinaryVersion).value),
-    //    Compile / console / wartremoverErrors   := List.empty,
-//    Compile / console / wartremoverWarnings := List.empty,
-//    Compile / console / scalacOptions       :=
-//      (console / scalacOptions)
-//        .value
-//        .filterNot(option => option.contains("wartremover") || option.contains("import")),
-//    Test / console / wartremoverErrors      := List.empty,
-//    Test / console / wartremoverWarnings    := List.empty,
-//    Test / console / scalacOptions          :=
-//      (console / scalacOptions)
-//        .value
-//        .filterNot(option => option.contains("wartremover") || option.contains("import")),
-//    /* } WartRemover and scalacOptions */
-    console / initialCommands := """import just.semver.SemVer""",
-  )
-
-lazy val coreJvm = core.jvm
-lazy val coreJs  = core.js.settings(jsSettings)
-
-lazy val coreNative = core.native.settings(nativeSettings)
-
-lazy val decver = module("decver", crossProject(JVMPlatform, JSPlatform, NativePlatform))
-  .settings(
-    libraryDependencies ++= List(libs.tests.scalaCollectionCompat.value),
-  )
-  .dependsOn(core % props.IncludeTest)
-
-lazy val decverJvm = decver.jvm
-lazy val decverJs  = decver.js.settings(jsSettings)
-
-lazy val decverNative = decver.native.settings(nativeSettings)
 
 lazy val docs = (project in file("docs-gen-tmp/docs"))
   .enablePlugins(MdocPlugin, DocusaurPlugin)
   .settings(
     scalaVersion := props.ProjectScalaVersion,
-    name := prefixedProjectName("docs"),
+    name := props.RepoName,
     mdocIn := file("docs"),
     mdocOut := file("generated-docs/docs"),
     cleanFiles += file("generated-docs/docs"),
     scalacOptions ~= (ops => ops.filterNot(x => x == "-Wnonunit-statement")),
     libraryDependencies ++= {
-      import sys.process._
-      "git fetch --tags".!
-      val tag           = "git rev-list --tags --max-count=1".!!.trim
-      val latestVersion = s"git describe --tags $tag".!!.trim.stripPrefix("v")
+      implicit val logger: Logger = sLog.value
+
+      val latestVersion = DocsTools.getTheLatestTaggedVersion(props.GitHubUsername, props.CodeRepoName)(logger.error(_))
 
       List(
         "io.kevinlee" %%% "just-semver-core"   % latestVersion,
         "io.kevinlee" %%% "just-semver-decver" % latestVersion,
       )
     },
-    mdocVariables := Map(
-      "VERSION"                  -> {
-        import sys.process._
-        "git fetch --tags".!
-        val tag = "git rev-list --tags --max-count=1".!!.trim
-        s"git describe --tags $tag".!!.trim.stripPrefix("v")
-      },
-      "SUPPORTED_SCALA_VERSIONS" -> {
-        val versions = props
-          .CrossScalaVersions
-          .map { scalaVersion =>
-            if (scalaVersion.startsWith("3")) {
-              val scalaV = SemVer.unsafeParse(scalaVersion)
-              s"${scalaV.major.value.toString}.${scalaV.minor.value.toString}+"
-            } else {
-              CrossVersion.binaryScalaVersion(scalaVersion)
-            }
-          }
-          .distinct
-          .map(binVer => s"`$binVer`")
-        if (versions.length > 1)
-          s"${versions.init.mkString(", ")} and ${versions.last}"
-        else
-          versions.mkString
-      },
-    ),
     docusaurDir := (ThisBuild / baseDirectory).value / "website",
     docusaurBuildDir := docusaurDir.value / "build",
+    mdocVariables := {
+      implicit val logger: Logger = sLog.value
+
+      val latestVersion = DocsTools.getTheLatestTaggedVersion(props.GitHubUsername, props.CodeRepoName)(logger.error(_))
+      DocsTools.createMdocVariables(latestVersion, props.CrossScalaVersions, props.CrossScalaVersions)
+    },
+    mdoc := {
+      implicit val logger: Logger = sLog.value
+
+      val latestVersion = DocsTools.getTheLatestTaggedVersion(props.GitHubUsername, props.CodeRepoName)(logger.error(_))
+
+      val envVarCi = sys.env.get("CI")
+      val ciResult = s"""sys.env.get("CI")=${envVarCi}"""
+      envVarCi match {
+        case Some("true") =>
+          logger.info(
+            s">> ${ciResult.yellow} so ${"run".green} `${"writeLatestVersion".blue}` and `${"writeVersionsArchived".blue}`."
+          )
+          val websiteDir = docusaurDir.value
+          DocsTools.writeLatestVersion(websiteDir, latestVersion)
+          DocsTools.writeVersionsArchived(props.GitHubUsername, props.CodeRepoName)(websiteDir, latestVersion)(logger)
+        case Some(_) | None =>
+          logger.info(
+            s">> ${ciResult.yellow} so it will ${"not run".red} `${"writeLatestVersion".cyan}` and `${"writeVersionsArchived".cyan}`.\n" +
+              s">> If you want to write these files locally, run sbt with ${"CI=true".yellow}.\n" +
+              s">> e.g.) ${"CI=true".blue} ${"sbt".blue}"
+          )
+      }
+      mdoc.evaluated
+    },
   )
   .settings(noPublish)
 
 lazy val props =
   new {
-    val RepoName = "just-semver"
+
+    private val GitHubRepo = findRepoOrgAndName
+
+    val Org = "io.kevinlee"
+
+    val GitHubUsername = GitHubRepo.fold("kevin-lee")(_.orgToString)
+    val RepoName       = GitHubRepo.fold("just-semver-docs")(_.nameToString)
+
+    val CodeRepoName = RepoName.stripSuffix("-docs")
 
     val licenses = List("MIT" -> url("http://opensource.org/licenses/MIT"))
 
@@ -227,91 +151,3 @@ def isScala3(scalaVersion: String): Boolean = scalaVersion.startsWith("3.")
 // scalafmt: off
 def prefixedProjectName(name: String) = s"${props.RepoName}${if (name.isEmpty) "" else s"-$name"}"
 // scalafmt: on
-
-def module(projectName: String, crossProject: CrossProject.Builder): CrossProject = {
-  val prefixedName = prefixedProjectName(projectName)
-  crossProject
-    .in(file(s"modules/$prefixedName"))
-    .settings(
-      name := prefixedName,
-    )
-    .settings(
-      libraryDependencies ++= {
-        if (isGhaPublishing) {
-          List.empty[ModuleID]
-        } else {
-          SemVer.majorMinorPatch(SemVer.parseUnsafe(scalaVersion.value)) match {
-            case (Major(2), Minor(11), _) =>
-              List(compilerPlugin("org.wartremover" %% "wartremover" % "2.4.19" cross CrossVersion.full))
-            case (_, _, _) =>
-              List(compilerPlugin("org.wartremover" %% "wartremover" % "3.3.1" cross CrossVersion.full))
-          }
-        }
-      },
-      Compile / unmanagedSourceDirectories := {
-        val sharedSourceDir = baseDirectory.value.getParentFile / "shared/src/main"
-        val moreSrcs        =
-          if (scalaVersion.value.startsWith("2.13") || scalaVersion.value.startsWith("2.12"))
-            Seq(sharedSourceDir / "scala-2.12_2.13")
-          else
-            Seq.empty[File]
-        ((Compile / unmanagedSourceDirectories).value ++ moreSrcs).distinct
-      },
-      //    useAggressiveScalacOptions := true,
-      libraryDependencies := {
-        lazy val hedgehogAll = libs.tests.hedgehogLibs.value
-        crossVersionProps(Seq.empty[ModuleID], SemVer.parseUnsafe(scalaVersion.value)) {
-          case (SemVer.Major(3), SemVer.Minor(0), _) =>
-            hedgehogAll ++ libraryDependencies.value ++
-              libraryDependencies.value.filterNot(m => m.organization == "org.wartremover" && m.name == "wartremover")
-
-          case (Major(3), _, _) =>
-            hedgehogAll ++ libraryDependencies.value
-
-          case x =>
-            hedgehogAll ++ libraryDependencies.value
-        }
-      },
-      libraryDependencies := (
-        if (isScala3(scalaVersion.value)) {
-          libraryDependencies
-            .value
-            .filterNot(props.removeDottyIncompatible)
-        } else {
-          libraryDependencies.value
-        }
-      ),
-      scalacOptions ++= (if (isGhaPublishing) List.empty[String]
-                         else ProjectInfo.commonWarts(scalaVersion.value)),
-      Compile / console / scalacOptions :=
-        (console / scalacOptions)
-          .value
-          .filterNot(option => option.contains("wartremover") || option.contains("import")),
-      Compile / console / scalacOptions := {
-        val wartOptions = ProjectInfo.commonWarts(scalaVersion.value)
-        (console / scalacOptions)
-          .value
-          .filterNot(option => wartOptions.contains(option) || option.contains("-Wunused"))
-      },
-      Test / console / scalacOptions :=
-        (console / scalacOptions)
-          .value
-          .filterNot(option => option.contains("wartremover") || option.contains("import")),
-      Test / console / scalacOptions := {
-        val wartOptions = ProjectInfo.commonWarts(scalaVersion.value)
-        (console / scalacOptions)
-          .value
-          .filterNot(option => wartOptions.contains(option) || option.contains("-Wunused"))
-      },
-    )
-}
-
-lazy val jsSettings: SettingsDefinition = List(
-  Test / fork := false,
-  coverageEnabled := false
-)
-
-lazy val nativeSettings: SettingsDefinition = List(
-  Test / fork := false,
-  coverageEnabled := false
-)

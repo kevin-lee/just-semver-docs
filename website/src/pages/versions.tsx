@@ -12,22 +12,41 @@ import Layout from '@theme/Layout';
 import {
   useVersions,
   useLatestVersion,
+  type Version,
 } from '@docusaurus/plugin-content-docs/client';
+
+import {ArchivedVersion, LatestVersion} from '../types/commonTypes';
 
 import VersionsArchived from './versionsArchived.json';
 
+import LatestVersionImported from '../../latestVersion.json';
+
+const latestVersionFound = LatestVersionImported as LatestVersion;
+
+
 const docsPluginId = undefined;
 
-function Version() {
+export default function Version(): React.JSX.Element {
+
   const {siteConfig} = useDocusaurusContext();
-  const versions = useVersions(docsPluginId);
-  const latestVersion = useLatestVersion(docsPluginId);
-  const currentVersion = versions.find((version) => version.name === 'current');
-  const pastVersions = versions.filter(
-    (version) => version !== latestVersion && version.name !== 'current',
-  ).concat(
-    VersionsArchived
-  ).sort((a, b) => {
+  const versions = useVersions();
+  const latestVersion = useLatestVersion();
+
+  // console.log(`versions: ${JSON.stringify(versions)}`);
+
+  const isVersionLessThanOne = (versionName: string): boolean => {
+    const normalizedVersionName = versionName.startsWith('v')
+        ? versionName.substring(1)
+        : versionName;
+    const [major] = normalizedVersionName.split('.');
+    const majorVersion = Number.parseInt(major, 10);
+    // console.log(`versionName: ${versionName}, normalizedVersionName: ${normalizedVersionName}, major: ${major}, majorVersion: ${majorVersion}`);
+    return Number.isFinite(majorVersion) && majorVersion < 1;
+  };
+  console.log(`latestVersion: ${JSON.stringify(latestVersion)}`);
+
+  const defaultVersionSorting = (a: ArchivedVersion, b: ArchivedVersion) => {
+    // console.log(`a: ${JSON.stringify(a)}, b: ${JSON.stringify(b)}`);
     if (!a.name.includes(".") || !b.name.includes(".")) {
       if (a.name.includes("v")) {
         const aVersion = parseInt(a.name.substring(1).split(".")[0]);
@@ -81,17 +100,35 @@ function Version() {
     } else {
       return 1;
     }
-  });
-  console.log(JSON.stringify(pastVersions));
+  };
+
+  const currentVersion = versions.find((version) => version.name === 'current');
+
+  const pastVersions = versions.filter((version) => (version !== latestVersion && version.name !== 'current'))
+      .concat(VersionsArchived as ArchivedVersion[])
+      .filter((version) => !isVersionLessThanOne(version.name))
+      .sort(defaultVersionSorting);
+
+  const pastEndOfLifeVersions = versions.filter(
+      (version) => (version !== latestVersion && version.name !== 'current'))
+      .concat(VersionsArchived as ArchivedVersion[])
+      .filter((version) => isVersionLessThanOne(version.name))
+      .sort(defaultVersionSorting);
+
+  console.log(`pastVersions: ${JSON.stringify(pastVersions)}`);
+  console.log(`pastEndOfLifeVersions: ${JSON.stringify(pastEndOfLifeVersions)}`);
+  // const stableVersion = pastVersions.shift();
   const stableVersion = currentVersion;
   const repoUrl = `https://github.com/${siteConfig.organizationName}/${siteConfig.projectName}`;
 
-  const docLink = path => path ? <Link to={path}>Documentation</Link> : <span>&nbsp;</span>;
-
-  const releaseLink = version => version.label !== "v1" ?
-    <a href={`${repoUrl}/releases/tag/v${version.name}`}>Release Notes</a> : <span>&nbsp;</span>;
-
   const spaces = howMany => <span dangerouslySetInnerHTML={{__html: "&nbsp;".repeat(howMany)}}/>;
+
+  const docLink = (path?: string) => path ?
+      <Link to={path}>Documentation</Link> : <span>{spaces(7)}</span>;
+
+  const releaseLink = (version: Version | ArchivedVersion) => version.label !== "v0.x.0" ?
+      <a href={`${repoUrl}/releases/tag/v${version.name}`}>Release Notes</a> :
+      <a href={`${repoUrl}/releases/tag/v0.13.0`}>Release Notes</a>;
 
   return (
     <Layout
@@ -101,52 +138,77 @@ function Version() {
         <h1>Effectie documentation versions</h1>
 
         {stableVersion && (
-          <div className="margin-bottom--lg">
-            <h3 id="next">Current version (Stable)</h3>
-            <p>
-              Here you can find the documentation for current released version.
-            </p>
-            <table>
-              <tbody>
-              <tr>
-                <th>{stableVersion.label}</th>
-                <td>
-                  <Link to={stableVersion.path}>Documentation</Link>
-                </td>
-                <td>
-                  <a href={`${repoUrl}/releases/tag/v${stableVersion.label}`}>
-                    Release Notes
-                  </a>
-                </td>
-              </tr>
-              </tbody>
-            </table>
-          </div>
+            <div className="margin-bottom--lg">
+              <h3 id="next">Current version (Stable)</h3>
+              <p>
+                Here you can find the documentation for current released
+                version.
+              </p>
+              <table>
+                <tbody>
+                <tr>
+                  <th>{latestVersionFound.version}</th>
+                  <td>
+                    <Link to={stableVersion.path}>Documentation</Link>
+                  </td>
+                  <td>
+                    <a href={`${repoUrl}/releases/tag/v${latestVersionFound.version}`}>
+                      Release Notes
+                    </a>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
         )}
 
         {pastVersions.length > 0 && (
-          <div className="margin-bottom--lg">
-            <h3 id="archive">Past versions (Not maintained anymore)</h3>
-            <p>
-              Here you can find documentation for previous versions of
-              Effectie.
-            </p>
-            <table>
-              <tbody>
-              {pastVersions.map((version) => (
-                <tr key={version.name}>
-                  <th>{version.label}</th>
-                  <td>
-                    {docLink(version.path)}
-                  </td>
-                  <td>
-                    {releaseLink(version)}
-                  </td>
-                </tr>
-              ))}
-              </tbody>
-            </table>
-          </div>
+            <div className="margin-bottom--lg">
+              <h3 id="archive">Past versions</h3>
+              <p>
+                Here you can find the previous versions of just-semver.
+              </p>
+              <table>
+                <tbody>
+                {pastVersions.map((version) => (
+                    <tr key={version.name}>
+                      <th>{version.label}</th>
+                      <td>
+                        {docLink(version.path)}
+                      </td>
+                      <td>
+                        {releaseLink(version)}
+                      </td>
+                    </tr>
+                ))}
+                </tbody>
+              </table>
+            </div>
+        )}
+
+        {pastEndOfLifeVersions.length > 0 && (
+            <div className="margin-bottom--lg">
+              <h3 id="archive">Past versions (Not maintained anymore)</h3>
+              <p>
+                Here you can find documentation for previous versions of
+                just-semver that are no longer maintained.
+              </p>
+              <table>
+                <tbody>
+                {pastEndOfLifeVersions.map((version) => (
+                    <tr key={version.name}>
+                      <th>{version.label}</th>
+                      <td>
+                        {docLink(version.path)}
+                      </td>
+                      <td>
+                        {releaseLink(version)}
+                      </td>
+                    </tr>
+                ))}
+                </tbody>
+              </table>
+            </div>
         )}
 
       </main>
