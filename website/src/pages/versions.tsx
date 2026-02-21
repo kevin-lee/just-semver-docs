@@ -135,7 +135,7 @@ export default function Version(): React.JSX.Element {
       title="Versions"
       description="Effectie Versions page listing all documented site versions">
       <main className="container margin-vert--lg">
-        <h1>Effectie documentation versions</h1>
+        <h1>Just SemVer documentation versions</h1>
 
         {stableVersion && (
             <div className="margin-bottom--lg">
