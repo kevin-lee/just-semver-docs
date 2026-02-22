@@ -12,4 +12,5 @@
 
 Semantic Versioning (`SemVer`) for Scala
 
-Docs: [https://just-semver.kevinly.dev](https://just-semver.kevinly.dev)
+## Project Repository: [https://github.com/kevin-lee/just-semver](https://github.com/kevin-lee/just-semver)
+## Docs: [https://just-semver.kevinly.dev](https://just-semver.kevinly.dev)
