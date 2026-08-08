@@ -14,7 +14,7 @@ jobs:
         scala:
           - { version: "2.13.16", binary-version: "2.13", java-version: "11", java-distribution: "temurin" }
         node:
-          - { version: "22.17.0" }
+          - { version: "24" }
 
     steps:
       - uses: actions/checkout@v7
@@ -28,17 +28,6 @@ jobs:
         with:
           node-version: ${{ matrix.node.version }}
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Cache SBT
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.ivy2/cache
-            ~/.cache/coursier
-            ~/.sbt
-          key: ${{ runner.os }}-sbt-${{ matrix.scala.binary-version }}-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('**/build.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-sbt-${{ matrix.scala.binary-version }}-
 
       - name: Cache npm
         uses: actions/cache@v6
