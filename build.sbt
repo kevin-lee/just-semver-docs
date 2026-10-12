@@ -96,7 +96,7 @@ lazy val props =
 //    val ProjectScalaVersion: String      = "2.12.18"
 //    val ProjectScalaVersion: String      = "3.1.3"
 //    val ProjectScalaVersion: String      = "3.3.1"
-    val ProjectScalaVersion: String      = "2.13.16"
+    val ProjectScalaVersion: String      = "2.13.18"
     val CrossScalaVersions: List[String] =
       (
         if (isGhaPublishing) {
@@ -108,8 +108,8 @@ lazy val props =
         }
       ) (
         List(
-          "2.12.18",
-          "2.13.16",
+          "2.12.21",
+          "2.13.17",
           "3.3.5",
           ProjectScalaVersion
         ).distinct
@@ -117,7 +117,7 @@ lazy val props =
 
     val IncludeTest = "compile->compile;test->test"
 
-    val HedgehogVersion = "0.13.0"
+    val HedgehogVersion = "0.15.0"
 
     val ScalaCollectionCompatVersion = "2.13.0"
 
